@@ -1,7 +1,7 @@
 import React from 'react';
-import Button from '@mui/material/Button';
 import { createDockerDesktopClient } from '@docker/extension-api-client';
-import { Stack, TextField, Typography } from '@mui/material';
+import { Typography, Button, TextField, Divider, Table, TableBody, TableCell } from '@mui/material';
+import { json } from 'stream/consumers';
 
 // Note: This line relies on Docker Desktop's presence as a host application.
 // If you're running this React app in a browser, it won't work properly.
@@ -12,42 +12,83 @@ function useDockerDesktopClient() {
 }
 
 export function App() {
-  const [response, setResponse] = React.useState<string>();
   const ddClient = useDockerDesktopClient();
+  const [containers, setContainers] = React.useState<Array<any>>();
+  const [stats, setStats] = React.useState<Array<any>>();
+  const [containerId, setContainerId] = React.useState<string>('');
 
-  const fetchAndDisplayResponse = async () => {
-    const result = await ddClient.extension.vm?.service?.get('/hello');
-    setResponse(JSON.stringify(result));
+  const listContainers = async () => {
+    // The `exec()` method is essentially running command in the terminal.
+    // The code below runs `docker ps` with additional options.
+    console.log('listing containers...');
+    try {
+      const result = await ddClient.docker.cli.exec('ps', [
+        '--all', // list all containers (default shows just running)
+        '--format', // format as a json object
+        '"{{json .}}"',
+      ]);
+      setContainers(result.parseJsonLines());
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const listContainerStats = async () => {
+    console.log('listing stats...');
+    try {
+      const result = await ddClient.docker.cli.exec('stats', [
+        '--no-stream', // disable streaming and only pull the first result
+        '--no-trunc', // do not truncate output
+        '--format', // format as a json object
+        '"{{json .}}"',
+        containerId, // show the stats for this specific container
+      ]);
+      setStats(result.parseJsonLines());
+      console.log(result.parseJsonLines());
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
     <>
-      <Typography variant="h3">Docker extension demo</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-        This is a basic page rendered with MUI, using Docker's theme. Read the
-        MUI documentation to learn more. Using MUI in a conventional way and
-        avoiding custom styling will help make sure your extension continues to
-        look great as Docker's theme evolves.
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-        Pressing the below button will trigger a request to the backend. Its
-        response will appear in the textarea.
-      </Typography>
-      <Stack direction="row" alignItems="start" spacing={2} sx={{ mt: 4 }}>
-        <Button variant="contained" onClick={fetchAndDisplayResponse}>
-          Call backend
-        </Button>
+      <Typography variant="h3">Test extension</Typography>
 
-        <TextField
-          label="Backend response"
-          sx={{ width: 480 }}
-          disabled
-          multiline
-          variant="outlined"
-          minRows={5}
-          value={response ?? ''}
-        />
-      </Stack>
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+        Click the button to see a list of all containers.
+      </Typography>
+
+      <Button variant="contained" onClick={listContainers} sx={{ mt: 2 }}>
+        List containers
+      </Button>
+
+      {containers &&
+        containers.map(({ Names, ID, Image, Size, State, Status }) => (
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+            {`${Names} ${ID}, ${Image}, ${Size}, ${State}, ${Status}`}
+          </Typography>
+        ))}
+
+      <Divider />
+
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+        Type a container ID into the input, then click the button to view that container's stats.
+      </Typography>
+
+      <TextField
+        label="Container ID"
+        defaultValue="Hello World"
+        value={containerId}
+        onChange={(e) => setContainerId(e.target.value)}
+      />
+
+      <Button variant="contained" onClick={listContainerStats} sx={{ mt: 2 }}>
+        List Stats
+      </Button>
+
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+        Stats: {stats && JSON.stringify(stats)}
+      </Typography>
     </>
   );
 }
