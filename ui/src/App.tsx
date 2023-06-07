@@ -1,7 +1,6 @@
 import React from 'react';
 import { createDockerDesktopClient } from '@docker/extension-api-client';
-import { Typography, Button, TextField, Divider, Table, TableBody, TableCell } from '@mui/material';
-import { json } from 'stream/consumers';
+import { Typography, Button, TextField, Divider, Stack } from '@mui/material';
 
 // Note: This line relies on Docker Desktop's presence as a host application.
 // If you're running this React app in a browser, it won't work properly.
@@ -72,19 +71,22 @@ export function App() {
       <Divider />
 
       <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-        Type a container ID into the input, then click the button to view that container's stats.
+        Copy/paste a container Id from above into this input, then click the button to view that
+        container's stats.
       </Typography>
 
-      <TextField
-        label="Container ID"
-        defaultValue="Hello World"
-        value={containerId}
-        onChange={(e) => setContainerId(e.target.value)}
-      />
+      <Stack direction="row" alignItems="start" spacing={2} sx={{ mt: 4 }}>
+        <TextField
+          label="Container ID"
+          defaultValue="Hello World"
+          value={containerId}
+          onChange={(e) => setContainerId(e.target.value)}
+        />
 
-      <Button variant="contained" onClick={listContainerStats} sx={{ mt: 2 }}>
-        List Stats
-      </Button>
+        <Button variant="contained" onClick={listContainerStats} sx={{ mt: 2 }}>
+          List Stats
+        </Button>
+      </Stack>
 
       <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
         Stats: {stats && JSON.stringify(stats)}
