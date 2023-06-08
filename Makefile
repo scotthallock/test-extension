@@ -15,6 +15,14 @@ install-extension: build-extension ## Install the extension
 update-extension: build-extension ## Update the extension
 	docker extension update $(IMAGE):$(TAG)
 
+build-update-debug: # Build and update the extension, and put it into debug mode
+	docker build --tag=$(IMAGE):$(TAG) .
+	@echo Built the image.
+	docker extension update $(IMAGE):$(TAG)
+	@echo Updated the extension.
+	docker extension dev debug $(IMAGE):$(TAG)
+	@echo Put the extension in debug mode.
+
 prepare-buildx: ## Create buildx builder for multi-arch build, if not exists
 	docker buildx inspect $(BUILDER) || docker buildx create --name=$(BUILDER) --driver=docker-container --driver-opt=network=host
 
