@@ -1,15 +1,17 @@
-FROM golang:1.19-alpine AS builder
-ENV CGO_ENABLED=0
+# ============ Build the backend ============ 
+FROM node:18.12-alpine3.16 AS backend-builder
 WORKDIR /backend
-COPY backend/go.* .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
-COPY backend/. .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags="-s -w" -o bin/service
+# cache packages in layer
+COPY backend/package.json /backend/package.json
+COPY backend/package-lock.json /backend/package-lock.json
+RUN --mount=type=cache,target=/usr/src/backend/.npm \
+    npm set cache /usr/src/backend/.npm && \
+    npm ci
+# copy files
+COPY backend /backend
 
+
+# ============ Build the frontend ============ 
 FROM --platform=$BUILDPLATFORM node:18.12-alpine3.16 AS client-builder
 WORKDIR /ui
 # cache packages in layer
@@ -18,10 +20,13 @@ COPY ui/package-lock.json /ui/package-lock.json
 RUN --mount=type=cache,target=/usr/src/app/.npm \
     npm set cache /usr/src/app/.npm && \
     npm ci
-# install
+# copy files
 COPY ui /ui
+# build with vite
 RUN npm run build
 
+
+# ============ Configure the Docker Extension ============ 
 FROM alpine
 LABEL org.opencontainers.image.title="Test extension" \
     org.opencontainers.image.description="Just a little test extension for Docker Desktop" \
@@ -35,9 +40,18 @@ LABEL org.opencontainers.image.title="Test extension" \
     com.docker.extension.categories="" \
     com.docker.extension.changelog=""
 
-COPY --from=builder /backend/bin/service /
 COPY docker-compose.yaml .
 COPY metadata.json .
 COPY docker.svg .
+COPY --from=backend-builder /backend backend
 COPY --from=client-builder /ui/build ui
-CMD /service -socket /run/guest-services/backend.sock
+
+# ============ Start the Extension ============ 
+
+# The `alpine` image does not have node by default.
+# So we must install npm (and node) with this command:
+RUN apk add --update npm
+
+# Start the backend service
+WORKDIR /backend
+CMD ["npm", "start"]
