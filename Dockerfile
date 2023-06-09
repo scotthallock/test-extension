@@ -1,33 +1,33 @@
 # ============ Build the backend ============ 
 FROM node:18.12-alpine3.16 AS backend-builder
 WORKDIR /backend
-# cache packages in layer
+# Cache packages in layer
 COPY backend/package.json /backend/package.json
 COPY backend/package-lock.json /backend/package-lock.json
 RUN --mount=type=cache,target=/usr/src/backend/.npm \
     npm set cache /usr/src/backend/.npm && \
     npm ci
-# copy files
+# Copy files
 COPY backend /backend
 
 
 # ============ Build the frontend ============ 
 FROM --platform=$BUILDPLATFORM node:18.12-alpine3.16 AS client-builder
 WORKDIR /ui
-# cache packages in layer
+# Cache packages in layer
 COPY ui/package.json /ui/package.json
 COPY ui/package-lock.json /ui/package-lock.json
 RUN --mount=type=cache,target=/usr/src/app/.npm \
     npm set cache /usr/src/app/.npm && \
     npm ci
-# copy files
+# Copy files
 COPY ui /ui
-# build with vite
+# Build with vite
 RUN npm run build
 
 
 # ============ Configure the Docker Extension ============ 
-FROM alpine
+FROM node:18.12-alpine3.16
 LABEL org.opencontainers.image.title="Test extension" \
     org.opencontainers.image.description="Just a little test extension for Docker Desktop" \
     org.opencontainers.image.vendor="PSDJ" \
@@ -46,12 +46,7 @@ COPY docker.svg .
 COPY --from=backend-builder /backend backend
 COPY --from=client-builder /ui/build ui
 
+
 # ============ Start the Extension ============ 
-
-# The `alpine` image does not have node by default.
-# So we must install npm (and node) with this command:
-RUN apk add --update npm
-
-# Start the backend service
 WORKDIR /backend
 CMD ["npm", "start"]
